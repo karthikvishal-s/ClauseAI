@@ -4,9 +4,9 @@ import { FileText, Sparkles, Shield, Zap } from "lucide-react";
 
 export default function Home() {
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+    <section className="bg-blue-500 relative min-h-screen flex items-center justify-center overflow-hidden ">
 
-      <div className="absolute inset-0 bg-gradient-hero"></div>
+      <div className="bg-blue-700 absolute inset-0 bg-gradient-hero"></div>
       
       {/* Floating elements */}
       <div className="absolute inset-0 overflow-hidden">
