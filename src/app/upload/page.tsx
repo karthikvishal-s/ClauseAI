@@ -2,8 +2,8 @@
 import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Upload, FileText, X, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
-import { Button } from '@app/components/ui/button';
-import { Card } from "src/app/components/ui/card.tsx";
+import { Button } from '../components/button';
+import { Card } from "../components/card";
 import { toast } from '@/hooks/use-toast';
 
 interface UploadedFile {
