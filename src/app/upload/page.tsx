@@ -1,10 +1,10 @@
-
+"use client"
 import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Upload, FileText, X, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
 import { Button } from '../components/button';
 import { Card } from "../components/card";
-import { toast } from '@/hooks/use-toast';
+import { toast } from '../hooks/use-toast';
 
 interface UploadedFile {
   file: File;
@@ -13,7 +13,7 @@ interface UploadedFile {
   progress: number;
 }
 
-export const DocumentUpload = () => {
+export default function UploadPage() {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
