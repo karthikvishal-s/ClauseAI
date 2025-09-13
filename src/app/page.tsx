@@ -1,10 +1,11 @@
 import Image from "next/image";
+import Link from "next/link";
 import { FileText, Sparkles, Shield, Zap } from "lucide-react";
 
 export default function Home() {
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-      {/* Background gradient */}
+
       <div className="absolute inset-0 bg-gradient-hero"></div>
       
       {/* Floating elements */}
@@ -12,7 +13,7 @@ export default function Home() {
         <div className="absolute top-20 left-10 animate-float">
           <Shield className="h-8 w-8 text-white/20" />
         </div>
-        <div className="absolute top-32 right-20 animate-float" style={{ animationDelay: "1s" }}>
+        <div className="absolute top-32 right-20 animate-float" style={{ animationDelay: "4s" }}>
           <Sparkles className="h-6 w-6 text-white/20" />
         </div>
         <div className="absolute bottom-32 left-20 animate-float" style={{ animationDelay: "2s" }}>
@@ -32,18 +33,25 @@ export default function Home() {
           </div>
           
           <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
-            Demystify Legal
+            Clause AI
             <br />
-            <span className="bg-gradient-to-r from-white to-purple-200 bg-clip-text text-transparent">
-              Documents
-            </span>
           </h1>
           
           <p className="text-xl md:text-2xl text-white/80 mb-8 max-w-3xl mx-auto leading-relaxed">
             Transform complex legal jargon into clear, understandable insights with our 
             cutting-edge AI technology. Upload any legal document and get instant analysis.
           </p>
+
+          {/* CTA Button */}
+          <div className="mb-8">
+            <Link href="/upload">
+              <button className="px-6 py-3 bg-white text-black font-semibold rounded-full shadow-lg hover:bg-white/90 transition">
+                Get Started
+              </button>
+            </Link>
+          </div>
           
+          {/* Features */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <div className="flex items-center gap-2 text-white/70">
               <Shield className="h-5 w-5" />
@@ -68,4 +76,5 @@ export default function Home() {
         </div>
       </div>
     </section>
-  );}
+  );
+}
