@@ -1,0 +1,90 @@
+{
+    "document_summary": {
+        "overall_risk_score": 65,
+        "risk_summary": "The primary risks identified are:\n- Charges for damages can be deducted from the security deposit, and further recovery efforts may include legal action. (Risk Score: 75)\n- Occupants must fully compensate for any damages caused, even if the charges exceed the security deposit. (Risk Score: 70)\n- The Lessee explicitly agrees to bear full financial compensation for any damages that exceed the security deposit. (Risk Score: 70)",
+        "total_clauses": 10,
+        "risky_clause_count": 5
+    },
+    "clause_by_clause_analysis": [
+        {
+            "Clause": "HOSTEL MAINTENANCE & DAMAGE LIABILITY POLICY Occupants are responsible for maintaining hostel property.",
+            "risky": false,
+            "score": 10,
+            "summary": "Occupants are generally responsible for maintaining the hostel property.",
+            "reason": "This clause establishes a basic, common expectation for occupants regarding property maintenance without immediately assigning specific financial risk.",
+            "category": "Operational"
+        },
+        {
+            "Clause": "Damages caused shall be fully compensated, even if the charges exceed the security deposit.",
+            "risky": true,
+            "score": 70,
+            "summary": "Occupants must fully compensate for any damages caused, even if the charges exceed the security deposit.",
+            "reason": "This clause exposes the occupant to potentially significant financial liability that is not capped by the initial security deposit.",
+            "category": "Financial"
+        },
+        {
+            "Clause": "1.",
+            "risky": false,
+            "score": 0,
+            "summary": "This is a numerical indicator with no legal content.",
+            "reason": "The text provides no substantive legal content for analysis.",
+            "category": "Uncategorized"
+        },
+        {
+            "Clause": "Any damage to furniture, electrical appliances, or fittings must be paid in full by the occupant.",
+            "risky": true,
+            "score": 60,
+            "summary": "Occupants are fully responsible for paying for any damage to specific items like furniture, electrical appliances, or fittings.",
+            "reason": "This clause clearly specifies the types of property damage for which the occupant will bear full financial responsibility.",
+            "category": "Financial"
+        },
+        {
+            "Clause": "2.",
+            "risky": false,
+            "score": 0,
+            "summary": "This is a numerical indicator with no legal content.",
+            "reason": "The text provides no substantive legal content for analysis.",
+            "category": "Uncategorized"
+        },
+        {
+            "Clause": "Management is not responsible for loss of personal property kept in rooms or lockers.",
+            "risky": true,
+            "score": 50,
+            "summary": "The management disclaims responsibility for the loss of personal property belonging to occupants, even if kept in rooms or lockers.",
+            "reason": "This clause shifts the entire risk of loss or theft of personal belongings onto the occupant, limiting the management's liability.",
+            "category": "Liability"
+        },
+        {
+            "Clause": "3.",
+            "risky": false,
+            "score": 0,
+            "summary": "This is a numerical indicator with no legal content.",
+            "reason": "The text provides no substantive legal content for analysis.",
+            "category": "Uncategorized"
+        },
+        {
+            "Clause": "Charges for damages may be deducted from security deposit and additional recovery may be pursued legally.",
+            "risky": true,
+            "score": 75,
+            "summary": "Charges for damages can be deducted from the security deposit, and further recovery efforts may include legal action.",
+            "reason": "This clause explicitly states the management's right to pursue additional legal recovery for damages beyond the security deposit, increasing occupant risk.",
+            "category": "Financial"
+        },
+        {
+            "Clause": "The Lessee agrees to bear full compensation for any damages, beyond the deposit, if necessary.",
+            "risky": true,
+            "score": 70,
+            "summary": "The Lessee explicitly agrees to bear full financial compensation for any damages that exceed the security deposit.",
+            "reason": "This clause reiterates and emphasizes the occupant's obligation for full financial compensation for damages, potentially exceeding the security deposit.",
+            "category": "Financial"
+        },
+        {
+            "Clause": "_________________________ _________________________ Lessor (Hostel Management) Lessee (Occupant) Date: ____________ Date: ____________",
+            "risky": false,
+            "score": 0,
+            "summary": "This text represents a signature block for the lessor and lessee, including spaces for dates.",
+            "reason": "The text provides formatting for signatures and dates rather than substantive legal terms or obligations.",
+            "category": "Uncategorized"
+        }
+    ]
+}
