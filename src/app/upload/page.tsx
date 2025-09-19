@@ -25,13 +25,13 @@ interface UploadedFile {
 export default function UploadPage() {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
 
+  // Handle file drop
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const newFiles = acceptedFiles.map((file) => ({
       file,
       id: Math.random().toString(36).substr(2, 9),
       status: "ready" as const,
       progress: 0,
-      fileUrl: URL.createObjectURL(file),
     }));
 
     setUploadedFiles((prev) => [...prev, ...newFiles]);
@@ -69,10 +69,12 @@ export default function UploadPage() {
     },
   });
 
+  // Remove file from list
   const removeFile = (id: string) => {
     setUploadedFiles((prev) => prev.filter((file) => file.id !== id));
   };
 
+  // Handle submit (upload to Supabase via API route)
   const handleSubmit = async () => {
     if (uploadedFiles.length === 0) {
       toast({
@@ -104,7 +106,7 @@ export default function UploadPage() {
         setUploadedFiles((prev) =>
           prev.map((f) =>
             f.id === file.id
-              ? { ...f, status: "success", progress: 100, fileUrl: data.url }
+              ? { ...f, status: "success", progress: 100, fileUrl: data.publicUrl }
               : f
           )
         );
@@ -124,12 +126,13 @@ export default function UploadPage() {
 
     if (uploadedFiles.every((f) => f.status === "success")) {
       toast({
-        title: "Analysis complete!",
-        description: "Your legal documents have been successfully uploaded",
+        title: "Upload complete!",
+        description: "Your legal documents have been uploaded successfully",
       });
     }
   };
 
+  // File size formatter
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return "0 Bytes";
     const k = 1024;
@@ -209,15 +212,21 @@ export default function UploadPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
-                        <a
-                          href={fileUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-medium truncate text-legal-navy hover:underline flex items-center gap-1"
-                        >
-                          {file.name}
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
+                        {fileUrl ? (
+                          <a
+                            href={fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium truncate text-legal-navy hover:underline flex items-center gap-1"
+                          >
+                            {file.name}
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        ) : (
+                          <span className="font-medium truncate text-legal-navy">
+                            {file.name}
+                          </span>
+                        )}
                         <span className="text-sm text-muted-foreground">
                           {formatFileSize(file.size)}
                         </span>
@@ -266,11 +275,11 @@ export default function UploadPage() {
                     {uploadedFiles.some((f) => f.status === "uploading") ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Analyzing...
+                        Uploading...
                       </>
                     ) : (
                       <>
-                        Analyze Documents
+                        Upload to Cloud
                         <FileText className="ml-2 h-4 w-4" />
                       </>
                     )}
