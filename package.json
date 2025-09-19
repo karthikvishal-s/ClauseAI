@@ -12,6 +12,8 @@
     "clsx": "^2.1.1",
     "lucide-react": "^0.544.0",
     "next": "15.5.3",
+    "nltk": "^0.0.1",
+    "pdfplumber": "^0.0.1-security",
     "radix-ui": "^1.4.3",
     "react": "19.1.0",
     "react-dom": "19.1.0",
