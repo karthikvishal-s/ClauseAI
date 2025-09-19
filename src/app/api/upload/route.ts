@@ -1,46 +1,36 @@
-import type { NextApiRequest, NextApiResponse } from 'next'
-import { supabase } from '../lib/supaBaseClient'
+import { NextResponse } from "next/server";
+import { supabase } from '../lib/supabaseClient.ts'
 
-export const config = {
-  api: {
-    bodyParser: false, // Disable default body parser for file uploads
-  },
-}
-
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' })
+export async function POST(req: Request) {
+    const formData = await req.formData();
+    const file = formData.get("file") as File;
+  
+    if (!file) {
+      return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
+    }
+  
+    try {
+      // create unique file path
+      const filePath = `uploads/${Date.now()}-${file.name}`;
+  
+      // Upload to Supabase Storage
+      const { error } = await supabase.storage
+        .from("legal-docs") // your bucket name
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+  
+      if (error) throw error;
+  
+      // Get a public URL for the uploaded file
+      const { data } = supabase.storage
+        .from("legal-docs")
+        .getPublicUrl(filePath);
+  
+      return NextResponse.json({ publicUrl: data.publicUrl });
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message }, { status: 500 });
+    }
   }
-
-  try {
-    const chunks: Buffer[] = []
-    req.on('data', chunk => chunks.push(chunk))
-    req.on('end', async () => {
-      const buffer = Buffer.concat(chunks)
-
-      // Filename with timestamp to avoid collisions
-      const fileName = `pdf-${Date.now()}.pdf`
-
-      // Upload to Supabase storage
-      const { data, error } = await supabase.storage
-        .from('pdfs') // 👈 your bucket name
-        .upload(fileName, buffer, {
-          contentType: 'application/pdf',
-        })
-
-      if (error) return res.status(500).json({ error: error.message })
-
-      // Get public URL
-      const { data: publicUrlData } = supabase.storage
-        .from('pdfs')
-        .getPublicUrl(fileName)
-
-      res.status(200).json({
-        message: 'Upload successful',
-        fileUrl: publicUrlData.publicUrl,
-      })
-    })
-  } catch (err) {
-    res.status(500).json({ error: 'File upload failed' })
-  }
-}
+  
