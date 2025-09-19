@@ -1,7 +1,7 @@
 "use client"
 import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, FileText, X, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
+import { Upload, FileText, X, CheckCircle, AlertTriangle, Loader2, ExternalLink } from 'lucide-react';
 import { Button } from '../components/button';
 import { Card } from "../components/card";
 import { toast } from '../hooks/use-toast';
@@ -11,6 +11,7 @@ interface UploadedFile {
   id: string;
   status: 'ready' | 'uploading' | 'success' | 'error';
   progress: number;
+  fileUrl?: string; // 👈 add preview URL
 }
 
 export default function UploadPage() {
@@ -22,6 +23,7 @@ export default function UploadPage() {
       id: Math.random().toString(36).substr(2, 9),
       status: 'ready' as const,
       progress: 0,
+      fileUrl: URL.createObjectURL(file), // 👈 create preview URL
     }));
     
     setUploadedFiles(prev => [...prev, ...newFiles]);
@@ -39,7 +41,7 @@ export default function UploadPage() {
     accept: {
       'application/pdf': ['.pdf'],
     },
-    maxSize: 10 * 1024 * 1024, // 10MB
+    maxSize: 10 * 1024 * 1024,
     onDropRejected: (rejectedFiles) => {
       rejectedFiles.forEach(({ errors }) => {
         errors.forEach(error => {
@@ -75,38 +77,21 @@ export default function UploadPage() {
       return;
     }
 
-    // Set all files to uploading
     setUploadedFiles(prev => prev.map(file => ({ ...file, status: 'uploading' as const })));
 
-    // Simulate upload progress
     for (let i = 0; i <= 100; i += 10) {
       await new Promise(resolve => setTimeout(resolve, 100));
       setUploadedFiles(prev => prev.map(file => ({ ...file, progress: i })));
     }
 
-    // Mock API call to backend
     try {
-      const formData = new FormData();
-      uploadedFiles.forEach(({ file }) => {
-        formData.append('documents', file);
-      });
-
-      // Here you would make your actual API call
-      // const response = await fetch('/api/analyze-documents', {
-      //   method: 'POST',
-      //   body: formData,
-      // });
-
-      // Simulate success
       setUploadedFiles(prev => prev.map(file => ({ ...file, status: 'success' as const })));
-      
       toast({
         title: "Analysis complete!",
         description: "Your legal documents have been successfully analyzed",
       });
     } catch (error) {
       setUploadedFiles(prev => prev.map(file => ({ ...file, status: 'error' as const })));
-      
       toast({
         title: "Upload failed",
         description: "There was an error analyzing your documents. Please try again.",
@@ -184,7 +169,7 @@ export default function UploadPage() {
               <div className="mt-8 space-y-4">
                 <h4 className="text-lg font-semibold">Uploaded Documents ({uploadedFiles.length})</h4>
                 
-                {uploadedFiles.map(({ file, id, status, progress }) => (
+                {uploadedFiles.map(({ file, id, status, progress, fileUrl }) => (
                   <div key={id} className="flex items-center gap-4 p-4 bg-muted rounded-lg">
                     <div className="flex-shrink-0">
                       <FileText className="h-8 w-8 text-legal-navy" />
@@ -192,7 +177,16 @@ export default function UploadPage() {
                     
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
-                        <h5 className="font-medium truncate">{file.name}</h5>
+                        {/* 👇 Filename clickable to open in new tab */}
+                        <a 
+                          href={fileUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="font-medium truncate text-legal-navy hover:underline flex items-center gap-1"
+                        >
+                          {file.name}
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
                         <span className="text-sm text-muted-foreground">
                           {formatFileSize(file.size)}
                         </span>

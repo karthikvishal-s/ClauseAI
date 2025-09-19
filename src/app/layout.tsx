@@ -23,3 +23,16 @@ export default function RootLayout({
     </html>
   );
 }
+
+  
+  
+module.exports = {
+  theme: {
+    extend: {
+      animation: {
+        spin: 'spin 1s linear infinite',
+      },
+    },
+  },
+  plugins: [],
+}
