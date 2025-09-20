@@ -1,118 +1,191 @@
+# backend/app.py
 import os
-import json
 import re
+import json
+import tempfile
+import requests
 import pdfplumber
+import openai
 import nltk
+import time
 from nltk.tokenize import sent_tokenize
-from fastapi import FastAPI, UploadFile, File
-from fastapi.middleware.cors import CORSMiddleware
-import google.generativeai as genai
 from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+import traceback
 
-# Setup
+# ------------------- Config -------------------
 load_dotenv()
-api_key = os.getenv("GOOGLE_API_KEY")
-if not api_key:
-    raise ValueError("GOOGLE_API_KEY not found.")
-genai.configure(api_key=api_key)
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+if not OPENAI_API_KEY:
+    raise RuntimeError("OPENAI_API_KEY not set in .env")
 
-nltk.download("punkt")
-nltk.download("punkt_tab")
+# Initialize OpenAI client (new v1+ SDK)
+openai_client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
+# Download NLTK tokenizer
+nltk.download("punkt", quiet=True)
+
+# ------------------- FastAPI Init -------------------
 app = FastAPI()
-
-# Allow frontend to call API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # restrict to frontend URL later
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# ------------------- Helpers -------------------
+def read_pdf_from_url(url: str) -> str:
+    """Download PDF from URL and extract text."""
+    try:
+        r = requests.get(url, stream=True, timeout=30)
+        r.raise_for_status()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to download PDF: {e}")
 
-def read_pdf(file_path):
-    text = []
-    with pdfplumber.open(file_path) as pdf:
-        for page in pdf.pages:
-            page_text = page.extract_text() or ""
-            text.append(page_text)
-    return "\n".join(text)
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+        for chunk in r.iter_content(chunk_size=8192):
+            tmp.write(chunk)
+        tmp_path = tmp.name
 
+    texts = []
+    with pdfplumber.open(tmp_path) as pdf:
+        for p in pdf.pages:
+            texts.append(p.extract_text() or "")
+    full_text = "\n".join(texts)
 
-def preprocess_text(text):
+    try:
+        os.remove(tmp_path)
+    except Exception:
+        pass
+
+    return full_text
+
+def preprocess_text_to_clauses(text: str):
+    """Split document into clauses using sentence tokenizer."""
     text = re.sub(r"\s+", " ", text).strip()
-    return sent_tokenize(text)
+    clauses = sent_tokenize(text)
+    return [c.strip() for c in clauses if len(c.strip()) > 10]
 
+def chunk_list(items, chunk_size):
+    """Yield successive chunks from a list."""
+    for i in range(0, len(items), chunk_size):
+        yield items[i:i+chunk_size]
 
-def analyze_clauses_in_batch(clauses):
-    model = genai.GenerativeModel(model_name="gemini-2.5-flash")
-    clauses_with_ids = [{"id": i, "text": clause} for i, clause in enumerate(clauses)]
+def safe_json_parse(text: str):
+    """Safely parse JSON returned from OpenAI, clean up code blocks."""
+    text = text.strip().lstrip("```json").rstrip("```").strip()
+    # Remove stray newlines inside JSON that break parsing
+    text = re.sub(r'\n(?=\s*")', '', text)
+    try:
+        return json.loads(text)
+    except Exception:
+        # fallback empty list if JSON invalid
+        return []
 
-    system_prompt = """
-    You are an expert legal risk analyst. You will be given a JSON array of legal clauses.
-    Return a JSON array where each clause has:
-    - id
-    - analysis { risky, score, summary, reason, category }
-    Categories: ['Financial','Liability','Operational','Compliance','Termination','Data Privacy','Intellectual Property','Uncategorized']
-    """
+SYSTEM_PROMPT = """
+You are an expert legal risk analyst. You will be given a JSON array of legal clauses, each with "id" and "text".
+Return a JSON array of objects { "id": <id>, "analysis": { "risky": boolean, "score": integer 0-100, "summary": "<one-sentence summary>", "reason": "<one-sentence reason>", "category": "<one of ['Financial','Liability','Operational','Compliance','Termination','Data Privacy','Intellectual Property','Uncategorized']>" } }
+Respond ONLY with the JSON array (no extra commentary).
+"""
 
-    prompt = f"{system_prompt}\n\nCLAUSES_JSON:\n{json.dumps(clauses_with_ids, indent=2)}"
-    response = model.generate_content(prompt)
-    json_text = response.text.strip().replace("```json", "").replace("```", "")
-    analyses = json.loads(json_text)
+def call_openai_analyze_batch(clauses_with_ids, retries=2, delay=2):
+    """Call OpenAI to analyze a batch of clauses with retry mechanism."""
+    payload = {
+        "model": "gpt-4o-mini",
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": json.dumps(clauses_with_ids, ensure_ascii=False)}
+        ],
+        "temperature": 0,
+        "max_tokens": 2000
+    }
 
-    analysis_map = {item["id"]: item["analysis"] for item in analyses}
-    return [
-        {
-            "Clause": c["text"],
-            **analysis_map.get(c["id"], {
-                "risky": False, "score": 0,
-                "summary": "Not analyzed",
-                "reason": "Not analyzed",
-                "category": "Error"
-            })
-        }
-        for c in clauses_with_ids
-    ]
+    for attempt in range(retries + 1):
+        try:
+            resp = openai_client.chat.completions.create(**payload)
+            text = resp.choices[0].message.content
+            return safe_json_parse(text)
+        except Exception as e:
+            if attempt < retries:
+                time.sleep(delay)
+            else:
+                raise HTTPException(status_code=500, detail=f"OpenAI API error: {e}")
 
+# ------------------- API Endpoint -------------------
+@app.get("/analyze")
+async def analyze(fileUrl: str = Query(..., description="Public URL of uploaded PDF")):
+    try:
+        # 1) Download PDF and extract text
+        full_text = read_pdf_from_url(fileUrl)
+        if not full_text.strip():
+            return {
+                "document_summary": {
+                    "overall_risk_score": 0,
+                    "risk_summary": "PDF contains no extractable text.",
+                    "total_clauses": 0,
+                    "risky_clause_count": 0
+                },
+                "clause_by_clause_analysis": []
+            }
 
-def calculate_overall_risk(analysis_results):
-    risky_clauses = [r for r in analysis_results if r.get("risky")]
-    if not risky_clauses:
+        # 2) Split into clauses
+        clauses = preprocess_text_to_clauses(full_text)
+        if not clauses:
+            return {
+                "document_summary": {
+                    "overall_risk_score": 0,
+                    "risk_summary": "No clauses found.",
+                    "total_clauses": 0,
+                    "risky_clause_count": 0
+                },
+                "clause_by_clause_analysis": []
+            }
+
+        # 3) Prepare clauses with IDs
+        clauses_with_ids = [{"id": i, "text": c} for i, c in enumerate(clauses)]
+
+        # 4) Batch analysis (smaller batches to avoid truncation)
+        batch_size = 10
+        final_results = []
+        for batch in chunk_list(clauses_with_ids, batch_size):
+            analyses = call_openai_analyze_batch(batch)
+            for a in analyses:
+                cid = a.get("id")
+                analysis = a.get("analysis", {})
+                clause_text = next((c["text"] for c in batch if c["id"] == cid), "")
+                final_results.append({
+                    "Clause": clause_text,
+                    **analysis
+                })
+
+        # 5) Overall risk summary
+        risky = [r for r in final_results if r.get("risky")]
+        if risky:
+            avg_score = sum(r["score"] for r in risky) / len(risky)
+            top = sorted(risky, key=lambda x: x["score"], reverse=True)[:3]
+            risk_summary = "Primary risks:\n" + "\n".join([f"- {t['summary']} (Score: {t['score']})" for t in top])
+            overall = {
+                "overall_risk_score": round(avg_score),
+                "risk_summary": risk_summary,
+                "total_clauses": len(final_results),
+                "risky_clause_count": len(risky)
+            }
+        else:
+            overall = {
+                "overall_risk_score": 0,
+                "risk_summary": "No significant risks were identified.",
+                "total_clauses": len(final_results),
+                "risky_clause_count": 0
+            }
+
         return {
-            "overall_risk_score": 0,
-            "risk_summary": "No significant risks identified.",
-            "total_clauses": len(analysis_results),
-            "risky_clause_count": 0
+            "document_summary": overall,
+            "clause_by_clause_analysis": final_results
         }
-    avg_score = sum(c["score"] for c in risky_clauses) / len(risky_clauses)
-    top_risks = sorted(risky_clauses, key=lambda x: x["score"], reverse=True)[:3]
-    risk_summary = "Top risks:\n" + "\n".join(
-        f"- {c['summary']} (Score {c['score']})" for c in top_risks
-    )
-    return {
-        "overall_risk_score": round(avg_score),
-        "risk_summary": risk_summary,
-        "total_clauses": len(analysis_results),
-        "risky_clause_count": len(risky_clauses)
-    }
 
-
-@app.post("/analyze")
-async def analyze_document(file: UploadFile = File(...)):
-    temp_path = f"temp_{file.filename}"
-    with open(temp_path, "wb") as f:
-        f.write(await file.read())
-
-    text = read_pdf(temp_path)
-    clauses = preprocess_text(text)
-    clause_analysis = analyze_clauses_in_batch(clauses)
-    summary = calculate_overall_risk(clause_analysis)
-
-    os.remove(temp_path)
-
-    return {
-        "document_summary": summary,
-        "clause_by_clause_analysis": clause_analysis
-    }
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {e}")
