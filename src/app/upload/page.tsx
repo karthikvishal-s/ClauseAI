@@ -1,7 +1,9 @@
 "use client";
-
 import React, { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
+
+import { useToast } from "../hooks/use-toast";
+
 import {
   Upload,
   FileText,
@@ -128,6 +130,8 @@ export default function UploadPage() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
+  const { toast } = useToast()
+
   return (
     <section className="py-20 bg-gradient-to-b from-background to-legal-navy-light/20">
       <div className="container mx-auto px-6">
@@ -189,6 +193,8 @@ export default function UploadPage() {
                 ))}
 
                 <div className="flex justify-center pt-4">
+
+                  
                   <Button
                     size="lg"
                     onClick={handleSubmit}
@@ -201,6 +207,18 @@ export default function UploadPage() {
                       <>Upload to Cloud<FileText className="ml-2 h-4 w-4" /></>
                     )}
                   </Button>
+                  
+
+                <button className="hover:text-blue-500"
+      onClick={() =>
+        toast({
+          title: "Success",
+          description: "Document analyzed successfully ✅",
+        })
+      }
+    >
+      Click me
+    </button>
                 </div>
               </div>
             )}

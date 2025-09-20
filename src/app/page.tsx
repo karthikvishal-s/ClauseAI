@@ -1,8 +1,12 @@
-import Image from "next/image";
+"use client"
+
+import { Button } from "./components/button";
+import  { useToast } from "./hooks/use-toast"
 import Link from "next/link";
 import { FileText, Sparkles, Shield, Zap } from "lucide-react";
 
 export default function Home() {
+  const { toast } = useToast()   
   return (
     <section className="bg-blue-500 relative min-h-screen flex items-center justify-center overflow-hidden ">
 
@@ -44,10 +48,21 @@ export default function Home() {
 
           {/* CTA Button */}
           <div className="mb-8">
+          <Button
+        onClick={() =>
+          toast({
+            title: "ClauseAI Toast 🚀",
+            description: "Your toast system is working perfectly!",
+          })
+        }
+      >
+        Show Toast
+      </Button>
             <Link href="/upload">
               <button className="px-6 py-3 bg-white text-black font-semibold rounded-full shadow-lg hover:bg-white/90 transition">
                 Get Started
               </button>
+              
             </Link>
           </div>
           

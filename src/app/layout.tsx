@@ -17,24 +17,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
- 
-      >
+      <body>
+        <ToastProvider>
         {children}
+        <ToastViewport/>
+        </ToastProvider>
       </body>
     </html>
   );
 }
 
   
-  
-module.exports = {
-  theme: {
-    extend: {
-      animation: {
-        spin: 'spin 1s linear infinite',
-      },
-    },
-  },
-  plugins: [],
-}
+
