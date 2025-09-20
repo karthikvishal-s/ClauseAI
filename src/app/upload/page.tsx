@@ -13,13 +13,15 @@ import {
 import { Button } from "../components/button";
 import { Card } from "../components/card";
 import { toast } from "../hooks/use-toast";
+import { supabase } from "../lib/supabaseClient";
 
 interface UploadedFile {
   file: File;
   id: string;
   status: "ready" | "uploading" | "success" | "error";
   progress: number;
-  fileUrl?: string;
+  fileUrl?: string;    // Supabase URL after upload
+  previewUrl?: string; // Local URL for instant click
 }
 
 export default function UploadPage() {
@@ -32,8 +34,8 @@ export default function UploadPage() {
       id: Math.random().toString(36).substr(2, 9),
       status: "ready" as const,
       progress: 0,
+      previewUrl: URL.createObjectURL(file), // local preview
     }));
-
     setUploadedFiles((prev) => [...prev, ...newFiles]);
 
     if (acceptedFiles.length > 0) {
@@ -69,12 +71,16 @@ export default function UploadPage() {
     },
   });
 
-  // Remove file from list
+  // Remove file
   const removeFile = (id: string) => {
-    setUploadedFiles((prev) => prev.filter((file) => file.id !== id));
+    setUploadedFiles((prev) => {
+      const fileToRemove = prev.find(f => f.id === id);
+      if (fileToRemove?.previewUrl) URL.revokeObjectURL(fileToRemove.previewUrl);
+      return prev.filter((file) => file.id !== id);
+    });
   };
 
-  // Handle submit (upload to Supabase via API route)
+  // Upload handler
   const handleSubmit = async () => {
     if (uploadedFiles.length === 0) {
       toast({
@@ -86,31 +92,42 @@ export default function UploadPage() {
     }
 
     setUploadedFiles((prev) =>
-      prev.map((file) => ({ ...file, status: "uploading", progress: 0 }))
+      prev.map((file) => ({ ...file, status: "uploading", progress: 50 }))
     );
 
     for (const file of uploadedFiles) {
       try {
-        const formData = new FormData();
-        formData.append("file", file.file);
+        // Upload to Supabase bucket
+        const filePath = `uploads/${Date.now()}-${file.file.name}`;
+        const { error } = await supabase.storage
+          .from("pdfs") // your bucket name
+          .upload(filePath, file.file);
 
-        const response = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
-        });
+        if (error) throw error;
 
-        if (!response.ok) throw new Error("Upload failed");
+        // Get public URL
+        const { data: urlData } = supabase.storage
+          .from("pdfs")
+          .getPublicUrl(filePath);
 
-        const data = await response.json();
-
+        // Update file state with URL
         setUploadedFiles((prev) =>
           prev.map((f) =>
             f.id === file.id
-              ? { ...f, status: "success", progress: 100, fileUrl: data.publicUrl }
+              ? { ...f, status: "success", progress: 100, fileUrl: urlData.publicUrl }
               : f
           )
         );
-      } catch (error) {
+
+        // Optional: call backend API for analysis
+        // const formData = new FormData();
+        // formData.append("file", file.file);
+        // await fetch("http://127.0.0.1:8000/analyze", {
+        //   method: "POST",
+        //   body: formData,
+        // });
+      } catch (err) {
+        console.error(err);
         setUploadedFiles((prev) =>
           prev.map((f) =>
             f.id === file.id ? { ...f, status: "error", progress: 0 } : f
@@ -127,12 +144,12 @@ export default function UploadPage() {
     if (uploadedFiles.every((f) => f.status === "success")) {
       toast({
         title: "Upload complete!",
-        description: "Your legal documents have been uploaded successfully",
+        description: "Your documents are stored & ready for analysis.",
       });
     }
   };
 
-  // File size formatter
+  // Format file size
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return "0 Bytes";
     const k = 1024;
@@ -202,7 +219,7 @@ export default function UploadPage() {
                 <h4 className="text-lg font-semibold">
                   Uploaded Documents ({uploadedFiles.length})
                 </h4>
-                {uploadedFiles.map(({ file, id, status, progress, fileUrl }) => (
+                {uploadedFiles.map(({ file, id, status, progress, fileUrl, previewUrl }) => (
                   <div
                     key={id}
                     className="flex items-center gap-4 p-4 bg-muted rounded-lg"
@@ -212,21 +229,15 @@ export default function UploadPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
-                        {fileUrl ? (
-                          <a
-                            href={fileUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="font-medium truncate text-legal-navy hover:underline flex items-center gap-1"
-                          >
-                            {file.name}
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
-                        ) : (
-                          <span className="font-medium truncate text-legal-navy">
-                            {file.name}
-                          </span>
-                        )}
+                        <a
+                          href={fileUrl || previewUrl} // preview before upload
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium truncate text-legal-navy hover:underline flex items-center gap-1"
+                        >
+                          {file.name}
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
                         <span className="text-sm text-muted-foreground">
                           {formatFileSize(file.size)}
                         </span>
@@ -242,11 +253,7 @@ export default function UploadPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       {status === "ready" && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeFile(id)}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => removeFile(id)}>
                           <X className="h-4 w-4" />
                         </Button>
                       )}
