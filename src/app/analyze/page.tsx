@@ -2,6 +2,7 @@
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+// (Interface definitions remain the same)
 interface ClauseAnalysis {
   Clause: string;
   risky: boolean;
@@ -25,10 +26,11 @@ interface AnalysisResponse {
 
 export default function AnalyzePage() {
   const searchParams = useSearchParams();
-  const fileUrl = searchParams.get("fileUrl"); // URL of uploaded PDF
+  const fileUrl = searchParams.get("fileUrl");
   const [analysisResult, setAnalysisResult] = useState<AnalysisResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
+  const [progress, setProgress] = useState<number>(0);
 
   useEffect(() => {
     if (!fileUrl) {
@@ -57,6 +59,27 @@ export default function AnalyzePage() {
 
     fetchAnalysis();
   }, [fileUrl]);
+  
+  useEffect(() => {
+    if (loading) {
+      setProgress(0);
+      let currentProgress = 0;
+
+      const interval = setInterval(() => {
+        // Change the behavior to reach 95%
+        if (currentProgress < 95) {
+          currentProgress += Math.random() * 5;
+          setProgress(Math.min(currentProgress, 95));
+        }
+      }, 300);
+
+      return () => {
+        clearInterval(interval);
+      };
+    } else {
+      setProgress(100);
+    }
+  }, [loading]);
 
   return (
     <div className="container mx-auto p-8">
@@ -71,7 +94,16 @@ export default function AnalyzePage() {
       )}
 
       {loading && (
-        <p className="text-lg text-muted-foreground">Analyzing document, please wait...</p>
+        <div className="flex flex-col items-center justify-center">
+          <p className="text-lg text-muted-foreground mb-4">Analyzing document, please wait...</p>
+          <div className="w-1/2 bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+            <div 
+              className="bg-legal-navy h-2.5 rounded-full transition-all duration-500 ease-out" 
+              style={{ width: `${progress}%` }}
+            ></div>
+          </div>
+          <p className="mt-2">{Math.round(progress)}%</p>
+        </div>
       )}
 
       {error && (
