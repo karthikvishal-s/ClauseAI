@@ -1,8 +1,7 @@
-// src/app/analyze/page.tsx
 'use client';
 
-import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 interface ClauseAnalysis {
   Clause: string;
@@ -25,10 +24,9 @@ interface AnalysisResponse {
   clause_by_clause_analysis: ClauseAnalysis[];
 }
 
-// A separate component to handle the logic that uses useSearchParams
-function AnalyzeContent() {
+export default function AnalyzePage() {
   const searchParams = useSearchParams();
-  const fileUrl = searchParams.get("fileUrl"); // URL of uploaded PDF
+  const fileUrl = searchParams.get("fileUrl");
   const [analysisResult, setAnalysisResult] = useState<AnalysisResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
@@ -43,7 +41,6 @@ function AnalyzeContent() {
     const fetchAnalysis = async () => {
       try {
         setLoading(true);
-        // Using a relative URL to avoid hardcoding localhost
         const res = await fetch(`/api/analyze?fileUrl=${encodeURIComponent(fileUrl)}`);
         if (!res.ok) {
           const text = await res.text();
@@ -66,7 +63,7 @@ function AnalyzeContent() {
     <div className="container mx-auto p-8">
       <h1 className="text-3xl font-bold mb-6">Document Analysis</h1>
 
-      {fileUrl && (
+      {fileUrl && !loading && (
         <iframe
           src={fileUrl}
           className="w-full h-96 border rounded-lg mb-6"
@@ -74,13 +71,8 @@ function AnalyzeContent() {
         />
       )}
 
-      {loading && (
-        <p className="text-lg text-muted-foreground">Analyzing document, please wait...</p>
-      )}
-
-      {error && (
-        <p className="text-lg text-destructive mb-4">Error: {error}</p>
-      )}
+      {loading && <p className="text-lg text-muted-foreground">Analyzing document, please wait...</p>}
+      {error && <p className="text-lg text-destructive mb-4">Error: {error}</p>}
 
       {analysisResult && (
         <>
@@ -108,14 +100,5 @@ function AnalyzeContent() {
         </>
       )}
     </div>
-  );
-}
-
-// The main page component that wraps the content in Suspense
-export default function AnalyzePage() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <AnalyzeContent />
-    </Suspense>
   );
 }
