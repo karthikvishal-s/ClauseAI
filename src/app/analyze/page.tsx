@@ -1,6 +1,8 @@
-"use client";
+// src/app/analyze/page.tsx
+'use client';
+
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
 
 interface ClauseAnalysis {
   Clause: string;
@@ -23,7 +25,8 @@ interface AnalysisResponse {
   clause_by_clause_analysis: ClauseAnalysis[];
 }
 
-export default function AnalyzePage() {
+// A separate component to handle the logic that uses useSearchParams
+function AnalyzeContent() {
   const searchParams = useSearchParams();
   const fileUrl = searchParams.get("fileUrl"); // URL of uploaded PDF
   const [analysisResult, setAnalysisResult] = useState<AnalysisResponse | null>(null);
@@ -40,7 +43,8 @@ export default function AnalyzePage() {
     const fetchAnalysis = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`http://127.0.0.1:8000/analyze?fileUrl=${encodeURIComponent(fileUrl)}`);
+        // Using a relative URL to avoid hardcoding localhost
+        const res = await fetch(`/api/analyze?fileUrl=${encodeURIComponent(fileUrl)}`);
         if (!res.ok) {
           const text = await res.text();
           throw new Error(text || "Failed to fetch analysis");
@@ -104,5 +108,14 @@ export default function AnalyzePage() {
         </>
       )}
     </div>
+  );
+}
+
+// The main page component that wraps the content in Suspense
+export default function AnalyzePage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AnalyzeContent />
+    </Suspense>
   );
 }
