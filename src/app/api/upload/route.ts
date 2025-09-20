@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { supabase } from '../lib/supabaseClient.ts'
+import{supabase} from '../../lib/supabaseClient'
+
 
 export async function POST(req: Request) {
     const formData = await req.formData();
