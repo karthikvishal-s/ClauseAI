@@ -1,7 +1,8 @@
+// src/app/analyze/page.tsx
 'use client';
 
-import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 interface ClauseAnalysis {
   Clause: string;
@@ -26,7 +27,7 @@ interface AnalysisResponse {
 
 export default function AnalyzePage() {
   const searchParams = useSearchParams();
-  const fileUrl = searchParams.get("fileUrl");
+  const fileUrl = searchParams.get("fileUrl"); // URL of uploaded PDF
   const [analysisResult, setAnalysisResult] = useState<AnalysisResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
@@ -63,7 +64,7 @@ export default function AnalyzePage() {
     <div className="container mx-auto p-8">
       <h1 className="text-3xl font-bold mb-6">Document Analysis</h1>
 
-      {fileUrl && !loading && (
+      {fileUrl && (
         <iframe
           src={fileUrl}
           className="w-full h-96 border rounded-lg mb-6"
