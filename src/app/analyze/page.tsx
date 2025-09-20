@@ -1,7 +1,7 @@
 // src/app/analyze/page.tsx
 'use client';
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 interface ClauseAnalysis {
@@ -25,7 +25,8 @@ interface AnalysisResponse {
   clause_by_clause_analysis: ClauseAnalysis[];
 }
 
-export default function AnalyzePage() {
+// A new, separate component that uses the client-side hook
+function AnalyzeContent() {
   const searchParams = useSearchParams();
   const fileUrl = searchParams.get("fileUrl"); // URL of uploaded PDF
   const [analysisResult, setAnalysisResult] = useState<AnalysisResponse | null>(null);
@@ -61,9 +62,7 @@ export default function AnalyzePage() {
   }, [fileUrl]);
 
   return (
-    <div className="container mx-auto p-8">
-      <h1 className="text-3xl font-bold mb-6">Document Analysis</h1>
-
+    <>
       {fileUrl && (
         <iframe
           src={fileUrl}
@@ -100,6 +99,18 @@ export default function AnalyzePage() {
           </div>
         </>
       )}
+    </>
+  );
+}
+
+// The main page component that wraps the content in Suspense
+export default function AnalyzePage() {
+  return (
+    <div className="container mx-auto p-8">
+      <h1 className="text-3xl font-bold mb-6">Document Analysis</h1>
+      <Suspense fallback={<div>Loading...</div>}>
+        <AnalyzeContent />
+      </Suspense>
     </div>
   );
 }
