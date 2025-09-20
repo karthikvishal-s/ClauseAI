@@ -1,8 +1,6 @@
-// src/app/analyze/page.tsx
-'use client';
-
-import { Suspense, useEffect, useState } from "react";
+"use client";
 import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 interface ClauseAnalysis {
   Clause: string;
@@ -25,8 +23,7 @@ interface AnalysisResponse {
   clause_by_clause_analysis: ClauseAnalysis[];
 }
 
-// A new, separate component that uses the client-side hook
-function AnalyzeContent() {
+export default function AnalyzePage() {
   const searchParams = useSearchParams();
   const fileUrl = searchParams.get("fileUrl"); // URL of uploaded PDF
   const [analysisResult, setAnalysisResult] = useState<AnalysisResponse | null>(null);
@@ -43,7 +40,7 @@ function AnalyzeContent() {
     const fetchAnalysis = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`/api/analyze?fileUrl=${encodeURIComponent(fileUrl)}`);
+        const res = await fetch(`http://127.0.0.1:8000/analyze?fileUrl=${encodeURIComponent(fileUrl)}`);
         if (!res.ok) {
           const text = await res.text();
           throw new Error(text || "Failed to fetch analysis");
@@ -62,7 +59,9 @@ function AnalyzeContent() {
   }, [fileUrl]);
 
   return (
-    <>
+    <div className="container mx-auto p-8">
+      <h1 className="text-3xl font-bold mb-6">Document Analysis</h1>
+
       {fileUrl && (
         <iframe
           src={fileUrl}
@@ -71,8 +70,13 @@ function AnalyzeContent() {
         />
       )}
 
-      {loading && <p className="text-lg text-muted-foreground">Analyzing document, please wait...</p>}
-      {error && <p className="text-lg text-destructive mb-4">Error: {error}</p>}
+      {loading && (
+        <p className="text-lg text-muted-foreground">Analyzing document, please wait...</p>
+      )}
+
+      {error && (
+        <p className="text-lg text-destructive mb-4">Error: {error}</p>
+      )}
 
       {analysisResult && (
         <>
@@ -99,18 +103,6 @@ function AnalyzeContent() {
           </div>
         </>
       )}
-    </>
-  );
-}
-
-// The main page component that wraps the content in Suspense
-export default function AnalyzePage() {
-  return (
-    <div className="container mx-auto p-8">
-      <h1 className="text-3xl font-bold mb-6">Document Analysis</h1>
-      <Suspense fallback={<div>Loading...</div>}>
-        <AnalyzeContent />
-      </Suspense>
     </div>
   );
 }
