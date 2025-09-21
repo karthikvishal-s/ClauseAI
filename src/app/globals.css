@@ -1,2 +1,93 @@
 @import "tailwindcss";
 
+
+@layer base {
+  :root {
+    /* Main color palette */
+    --background: #f8fafc; /* slate-50 */
+    --foreground: #020617; /* slate-950 */
+    --muted: #f1f5f9;      /* slate-100 */
+    --muted-foreground: #64748b; /* slate-500 */
+    --border: #e2e8f0;    /* slate-200 */
+    
+    /* Custom project colors */
+    --legal-navy: #0F172A;
+    --legal-navy-light: #475569;
+    --success-green: #22c55e;
+    --destructive: #ef4444;
+  }
+}
+
+/* Custom utility classes */
+@layer components {
+  .bg-gradient-hero {
+    background-image: radial-gradient(at top left, #3b82f6, transparent),
+                      radial-gradient(at bottom right, #1d4ed8, transparent);
+  }
+
+  .bg-gradient-upload {
+    background-image: linear-gradient(to bottom, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.05));
+  }
+
+  .shadow-elegant {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  }
+
+  .shadow-glow {
+    box-shadow: 0 0 25px rgba(59, 130, 246, 0.4);
+  }
+}
+
+/* Custom animations */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes float {
+  0% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-10px) rotate(5deg); }
+  100% { transform: translateY(0) rotate(0deg); }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@layer utilities {
+  .animate-spin-slow {
+    animation: spin 3s linear infinite;
+  }
+  
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .animate-pulse-slow {
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  .animate-slide-up {
+    animation: slide-up 0.5s ease-out forwards;
+  }
+}

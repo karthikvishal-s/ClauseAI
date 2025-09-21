@@ -5,10 +5,10 @@ import json
 import tempfile
 import requests
 import pdfplumber
-import openai
 import nltk
 import time
 import traceback
+import google.generativeai as genai
 from nltk.tokenize import sent_tokenize
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query
@@ -19,12 +19,11 @@ from chatbot import LegalAnalyzer
 
 # ------------------- Config -------------------
 load_dotenv()
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if not OPENAI_API_KEY:
-    raise RuntimeError("OPENAI_API_KEY not set in .env")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+if not GOOGLE_API_KEY:
+    raise RuntimeError("GOOGLE_API_KEY not set in .env file.")
 
-openai_client = openai.OpenAI(api_key=OPENAI_API_KEY)
-
+genai.configure(api_key=GOOGLE_API_KEY)
 nltk.download("punkt", quiet=True)
 
 # ------------------- FastAPI Init -------------------
@@ -79,7 +78,7 @@ def chunk_list(items, chunk_size):
         yield items[i:i+chunk_size]
 
 def safe_json_parse(text: str):
-    """Safely parse JSON returned from OpenAI, clean up code blocks."""
+    """Safely parse JSON returned from Gemini, clean up code blocks."""
     text = text.strip().lstrip("```json").rstrip("```").strip()
     text = re.sub(r'\n(?=\s*")', '', text)
     try:
@@ -87,36 +86,24 @@ def safe_json_parse(text: str):
     except Exception:
         return []
 
-SYSTEM_PROMPT = """
-You are an expert legal risk analyst. You will be given a JSON array of legal clauses, each with "id" and "text".
-Return a JSON array of objects { "id": <id>, "analysis": { "risky": boolean, "score": integer 0-100, "summary": "<one-sentence summary>", "reason": "<one-sentence reason>", "category": "<one of ['Financial','Liability','Operational','Compliance','Termination','Data Privacy','Intellectual Property','Uncategorized']>" } }
-Respond ONLY with the JSON array (no extra commentary).
-"""
-
-def call_openai_analyze_batch(clauses_with_ids, retries=2, delay=2):
-    """Call OpenAI to analyze a batch of clauses with retry mechanism."""
-    payload = {
-        "model": "gpt-4o-mini",
-        "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": json.dumps(clauses_with_ids, ensure_ascii=False)}
-        ],
-        "temperature": 0,
-        "max_tokens": 2000
-    }
-
+def call_gemini_analyze_batch(clauses_with_ids, retries=2, delay=2):
+    """Call Gemini to analyze a batch of clauses with retry mechanism."""
+    model = genai.GenerativeModel(model_name="gemini-2.5-flash")
+    system_prompt = f"""You are an expert legal risk analyst. YOUR CLIENT IS THE PERSON SIGNING THE DOCUMENT (e.g., the Lessee or Occupant). Your entire analysis must be from THEIR PERSPECTIVE, identifying risks that could negatively affect them. You will be given a JSON array of legal clauses, each with a unique "id". Your task is to analyze every clause and return a single JSON array as your response. Each object in your returned array must correspond to a clause from the input and contain: 1. "id": The original ID of the clause. 2. "analysis": An object containing your analysis with the following four fields: - "risky": A boolean (true/false). - "score": An integer from 0 (no risk) to 100 (critical risk). - "summary": A concise, one-sentence summary of the clause's meaning. - "reason": A concise, one-sentence explanation. - "category": One of ['Financial', 'Liability', 'Operational', 'Compliance', 'Termination', 'Data Privacy', 'Intellectual Property', 'Uncategorized']. Process all clauses provided in the input JSON and respond ONLY with the resulting JSON array."""
+    prompt = f"{system_prompt}\n\nCLAUSES_JSON:\n{json.dumps(clauses_with_ids, indent=2)}"
+    
     for attempt in range(retries + 1):
         try:
-            resp = openai_client.chat.completions.create(**payload)
-            text = resp.choices[0].message.content
-            return safe_json_parse(text)
+            response = model.generate_content(prompt)
+            json_text = response.text.strip().replace("```json", "").replace("```", "")
+            return safe_json_parse(json_text)
         except Exception as e:
             if attempt < retries:
                 time.sleep(delay)
             else:
-                raise HTTPException(status_code=500, detail=f"OpenAI API error: {e}")
+                raise HTTPException(status_code=500, detail=f"Gemini API error: {e}")
 
-
+# ------------------- API Endpoint for Document Analysis -------------------
 @app.get("/analyze")
 async def analyze(fileUrl: str = Query(..., description="Public URL of uploaded PDF")):
     try:
@@ -143,7 +130,7 @@ async def analyze(fileUrl: str = Query(..., description="Public URL of uploaded 
         batch_size = 10
         final_results = []
         for batch in chunk_list(clauses_with_ids, batch_size):
-            analyses = call_openai_analyze_batch(batch)
+            analyses = call_gemini_analyze_batch(batch)
             for a in analyses:
                 cid = a.get("id")
                 analysis = a.get("analysis", {})
@@ -180,7 +167,7 @@ async def analyze(fileUrl: str = Query(..., description="Public URL of uploaded 
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {e}")
 
-
+# ------------------- API Endpoint for Chatbot -------------------
 @app.get("/chat")
 async def chat_with_document(fileUrl: str, question: str):
     """

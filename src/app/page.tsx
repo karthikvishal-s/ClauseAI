@@ -48,16 +48,7 @@ export default function Home() {
 
           {/* CTA Button */}
           <div className="mb-8">
-          <Button
-        onClick={() =>
-          toast({
-            title: "ClauseAI Toast 🚀",
-            description: "Your toast system is working perfectly!",
-          })
-        }
-      >
-        Show Toast
-      </Button>
+        
             <Link href="/upload">
               <button className="px-6 py-3 bg-white text-black font-semibold rounded-full shadow-lg hover:bg-white/90 transition">
                 Get Started

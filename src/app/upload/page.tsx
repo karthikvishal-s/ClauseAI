@@ -1,8 +1,6 @@
-"use client";
+'use client'
 import React, { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
-import { motion, AnimatePresence } from "framer-motion";
-import ReactConfetti from 'react-confetti';
 
 import { useToast } from "../hooks/use-toast";
 
@@ -31,14 +29,9 @@ interface UploadedFile {
 
 export default function UploadPage() {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
-  const [showConfetti, setShowConfetti] = useState(false);
   const router = useRouter();
-
+  
   const onDrop = useCallback((files: File[]) => {
-    // Show confetti on a successful drop
-    setShowConfetti(true);
-    setTimeout(() => setShowConfetti(false), 2000); // Hide confetti after 2 seconds
-
     const newFiles = files.map((file) => ({
       file,
       id: Math.random().toString(36).substring(2, 9),
@@ -137,7 +130,6 @@ export default function UploadPage() {
 
   return (
     <section className="py-20 bg-gradient-to-b from-background to-legal-navy-light/20">
-      {showConfetti && <ReactConfetti className="z-50" />}
       <div className="container mx-auto px-6">
         <div className="text-center mb-12">
           <h2 className="text-4xl md:text-5xl font-bold mb-4 text-foreground">Upload Your Legal Documents</h2>
@@ -158,16 +150,6 @@ export default function UploadPage() {
             >
               <input {...getInputProps()} />
               <div className="flex flex-col items-center gap-4">
-                {isDragActive && (
-                  <motion.div
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                    className="absolute inset-0 flex items-center justify-center bg-legal-navy/10 backdrop-blur-sm rounded-xl z-10"
-                  >
-                    <FileText className="h-24 w-24 text-legal-navy opacity-30" />
-                  </motion.div>
-                )}
                 <div className={`p-4 rounded-full transition-all duration-300 ${isDragActive ? "bg-legal-navy text-white scale-110" : "bg-legal-navy-light text-legal-navy"}`}>
                   <Upload className="h-8 w-8" />
                 </div>
@@ -178,123 +160,55 @@ export default function UploadPage() {
               </div>
             </div>
 
-            <AnimatePresence>
-              {uploadedFiles.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 20 }}
-                  className="mt-8 space-y-4"
-                >
-                  <h4 className="text-lg font-semibold">Uploaded Documents ({uploadedFiles.length})</h4>
-                  <AnimatePresence>
-                    {uploadedFiles.map(({ file, id, status, progress, fileUrl, previewUrl }) => (
-                      <motion.div
-                        key={id}
-                        initial={{ opacity: 0, y: -20, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, x: -50 }}
-                        transition={{ duration: 0.3 }}
-                        className="flex items-center gap-4 p-4 bg-muted rounded-lg"
-                      >
-                        <FileText className="h-8 w-8 text-legal-navy" />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-1">
-                            <a href={fileUrl || previewUrl} target="_blank" rel="noopener noreferrer" className="font-medium truncate text-legal-navy hover:underline flex items-center gap-1">
-                              {file.name}<ExternalLink className="h-4 w-4" />
-                            </a>
-                            <span className="text-sm text-muted-foreground">{formatFileSize(file.size)}</span>
-                          </div>
-                          {status === "uploading" && (
-                            <div className="w-full bg-border rounded-full h-2 overflow-hidden">
-                              <motion.div
-                                initial={{ width: 0 }}
-                                animate={{ width: `${progress}%` }}
-                                transition={{ duration: 0.5 }}
-                                className="bg-legal-navy h-full rounded-full"
-                              ></motion.div>
-                            </div>
-                          )}
+            {uploadedFiles.length > 0 && (
+              <div className="mt-8 space-y-4">
+                <h4 className="text-lg font-semibold">Uploaded Documents ({uploadedFiles.length})</h4>
+                {uploadedFiles.map(({ file, id, status, progress, fileUrl, previewUrl }) => (
+                  <div key={id} className="flex items-center gap-4 p-4 bg-muted rounded-lg">
+                    <FileText className="h-8 w-8 text-legal-navy" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <a href={fileUrl || previewUrl} target="_blank" rel="noopener noreferrer" className="font-medium truncate text-legal-navy hover:underline flex items-center gap-1">
+                          {file.name}<ExternalLink className="h-4 w-4" />
+                        </a>
+                        <span className="text-sm text-muted-foreground">{formatFileSize(file.size)}</span>
+                      </div>
+                      {status === "uploading" && (
+                        <div className="w-full bg-border rounded-full h-2">
+                          <div className="bg-legal-navy h-2 rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <AnimatePresence mode="wait">
-                            {status === "ready" && (
-                              <motion.div
-                                initial={{ opacity: 0, scale: 0 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0, scale: 0 }}
-                              >
-                                <Button variant="ghost" size="sm" onClick={() => removeFile(id)}><X className="h-4 w-4" /></Button>
-                              </motion.div>
-                            )}
-                            {status === "uploading" && (
-                              <motion.div
-                                key="uploading"
-                                initial={{ opacity: 0, scale: 0 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0, scale: 0 }}
-                              >
-                                <Loader2 className="h-5 w-5 animate-spin text-legal-navy" />
-                              </motion.div>
-                            )}
-                            {status === "success" && (
-                              <motion.div
-                                key="success"
-                                initial={{ opacity: 0, scale: 0.5 }}
-                                animate={{ opacity: 1, scale: 1, rotate: 360 }}
-                              >
-                                <CheckCircle className="h-5 w-5 text-success-green" />
-                              </motion.div>
-                            )}
-                            {status === "error" && (
-                              <motion.div
-                                key="error"
-                                initial={{ opacity: 0, scale: 0.5 }}
-                                animate={{ opacity: 1, scale: 1, rotate: [0, -10, 10, -10, 0] }}
-                                transition={{ type: "spring", stiffness: 500, damping: 10 }}
-                              >
-                                <AlertTriangle className="h-5 w-5 text-destructive" />
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-
-                  <div className="flex justify-center pt-4">
-                    <Button
-                      size="lg"
-                      onClick={handleSubmit}
-                      disabled={uploadedFiles.length === 0 || uploadedFiles.some(f => f.status === "uploading")}
-                      className="min-w-48"
-                    >
-                      {uploadedFiles.some(f => f.status === "uploading") ? (
-                        <motion.span
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          transition={{ duration: 0.2 }}
-                          className="flex items-center"
-                        >
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />Uploading...
-                        </motion.span>
-                      ) : (
-                        <motion.span
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          transition={{ duration: 0.2 }}
-                          className="flex items-center"
-                        >
-                          Upload to Cloud<FileText className="ml-2 h-4 w-4" />
-                        </motion.span>
                       )}
-                    </Button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {status === "ready" && <Button variant="ghost" size="sm" onClick={() => removeFile(id)}><X className="h-4 w-4" /></Button>}
+                      {status === "uploading" && <Loader2 className="h-5 w-5 animate-spin text-legal-navy" />}
+                      {status === "success" && <CheckCircle className="h-5 w-5 text-success-green" />}
+                      {status === "error" && <AlertTriangle className="h-5 w-5 text-destructive" />}
+                    </div>
                   </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                ))}
+
+                <div className="flex justify-center pt-4">
+                  <Button
+                    size="lg"
+                    onClick={handleSubmit}
+                    disabled={uploadedFiles.length === 0 || uploadedFiles.some(f => f.status === "uploading")}
+                    className="min-w-48"
+                  >
+                    {uploadedFiles.some(f => f.status === "uploading") ? (
+                      <span className="flex items-center">
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Uploading...
+                      </span>
+                    ) : (
+                      <span className="flex items-center">
+                        Upload to Cloud<FileText className="ml-2 h-4 w-4" />
+                      </span>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
           </Card>
         </div>
       </div>
