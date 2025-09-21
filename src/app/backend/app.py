@@ -1,4 +1,4 @@
-# backend/app.py
+# app.py
 import os
 import re
 import json
@@ -8,11 +8,14 @@ import pdfplumber
 import openai
 import nltk
 import time
+import traceback
 from nltk.tokenize import sent_tokenize
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-import traceback
+
+# Assuming chatbot.py is in the same directory as app.py
+from chatbot import LegalAnalyzer
 
 # ------------------- Config -------------------
 load_dotenv()
@@ -20,10 +23,8 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     raise RuntimeError("OPENAI_API_KEY not set in .env")
 
-# Initialize OpenAI client (new v1+ SDK)
 openai_client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
-# Download NLTK tokenizer
 nltk.download("punkt", quiet=True)
 
 # ------------------- FastAPI Init -------------------
@@ -35,6 +36,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ------------------- Global Cache for Analyzers -------------------
+analyzer_cache = {}
 
 # ------------------- Helpers -------------------
 def read_pdf_from_url(url: str) -> str:
@@ -77,12 +81,10 @@ def chunk_list(items, chunk_size):
 def safe_json_parse(text: str):
     """Safely parse JSON returned from OpenAI, clean up code blocks."""
     text = text.strip().lstrip("```json").rstrip("```").strip()
-    # Remove stray newlines inside JSON that break parsing
     text = re.sub(r'\n(?=\s*")', '', text)
     try:
         return json.loads(text)
     except Exception:
-        # fallback empty list if JSON invalid
         return []
 
 SYSTEM_PROMPT = """
@@ -114,40 +116,30 @@ def call_openai_analyze_batch(clauses_with_ids, retries=2, delay=2):
             else:
                 raise HTTPException(status_code=500, detail=f"OpenAI API error: {e}")
 
-# ------------------- API Endpoint -------------------
+
 @app.get("/analyze")
 async def analyze(fileUrl: str = Query(..., description="Public URL of uploaded PDF")):
     try:
-        # 1) Download PDF and extract text
         full_text = read_pdf_from_url(fileUrl)
         if not full_text.strip():
             return {
                 "document_summary": {
-                    "overall_risk_score": 0,
-                    "risk_summary": "PDF contains no extractable text.",
-                    "total_clauses": 0,
-                    "risky_clause_count": 0
+                    "overall_risk_score": 0, "risk_summary": "PDF contains no extractable text.", "total_clauses": 0, "risky_clause_count": 0
                 },
                 "clause_by_clause_analysis": []
             }
 
-        # 2) Split into clauses
         clauses = preprocess_text_to_clauses(full_text)
         if not clauses:
             return {
                 "document_summary": {
-                    "overall_risk_score": 0,
-                    "risk_summary": "No clauses found.",
-                    "total_clauses": 0,
-                    "risky_clause_count": 0
+                    "overall_risk_score": 0, "risk_summary": "No clauses found.", "total_clauses": 0, "risky_clause_count": 0
                 },
                 "clause_by_clause_analysis": []
             }
 
-        # 3) Prepare clauses with IDs
         clauses_with_ids = [{"id": i, "text": c} for i, c in enumerate(clauses)]
 
-        # 4) Batch analysis (smaller batches to avoid truncation)
         batch_size = 10
         final_results = []
         for batch in chunk_list(clauses_with_ids, batch_size):
@@ -157,11 +149,9 @@ async def analyze(fileUrl: str = Query(..., description="Public URL of uploaded 
                 analysis = a.get("analysis", {})
                 clause_text = next((c["text"] for c in batch if c["id"] == cid), "")
                 final_results.append({
-                    "Clause": clause_text,
-                    **analysis
+                    "Clause": clause_text, **analysis
                 })
 
-        # 5) Overall risk summary
         risky = [r for r in final_results if r.get("risky")]
         if risky:
             avg_score = sum(r["score"] for r in risky) / len(risky)
@@ -186,6 +176,42 @@ async def analyze(fileUrl: str = Query(..., description="Public URL of uploaded 
             "clause_by_clause_analysis": final_results
         }
 
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {e}")
+
+
+@app.get("/chat")
+async def chat_with_document(fileUrl: str, question: str):
+    """
+    Answers a question about a document using the LegalAnalyzer chatbot.
+    """
+    try:
+        if fileUrl not in analyzer_cache:
+            print(f"Creating new LegalAnalyzer instance for URL: {fileUrl}")
+            
+            r = requests.get(fileUrl, stream=True, timeout=30)
+            r.raise_for_status()
+            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+                for chunk in r.iter_content(chunk_size=8192):
+                    tmp.write(chunk)
+                tmp_path = tmp.name
+            
+            analyzer_cache[fileUrl] = LegalAnalyzer(pdf_path=tmp_path)
+            
+            os.remove(tmp_path)
+            print(f"Analyzer instance for {fileUrl} created and cached.")
+            
+        analyzer = analyzer_cache[fileUrl]
+        
+        answer = analyzer.ask_question(question)
+        
+        return {"answer": answer}
+
+    except requests.exceptions.HTTPError as e:
+        raise HTTPException(status_code=e.response.status_code, detail=f"Failed to download PDF: {e}")
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="File not found. Please re-upload.")
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {e}")
